@@ -1,4 +1,4 @@
-# Simple Sports Score Fetcher (TheSportsDB)
+# Simple Sports Score Fetcher 
 
 A Python script to fetch and display the latest football match results for a specific team using the free TheSportsDB API (V1).
 
