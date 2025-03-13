@@ -1,18 +1,13 @@
 import requests
 from datetime import datetime
 from abc import ABC, abstractmethod
-from typing import Dict, Optional
-import logging
-
-# Set up logging to a file
-logging.basicConfig(filename='sports_scores.log', level=logging.INFO,
-                    format='%(asctime)s - %(message)s')
+from typing import Dict
 
 
 # --- Abstract Data Source Interface ---
 class SportsDataSource(ABC):
     @abstractmethod
-    def fetch_latest_match(self, team: str) -> Dict:
+    def fetch_latest_match(self, team: str, date: str = None) -> Dict:
         pass
 
 
@@ -22,7 +17,7 @@ class TheSportsDBFree(SportsDataSource):
         self.api_key = api_key
         self.base_url = "https://www.thesportsdb.com/api/v1/json"
 
-    def fetch_latest_match(self, team: str) -> Dict:
+    def fetch_latest_match(self, team: str, date: str = None) -> Dict:
         if not team:
             raise ValueError("Team name is required")
 
@@ -30,17 +25,24 @@ class TheSportsDBFree(SportsDataSource):
             team_id = self._get_team_id(team)
             url = f"{self.base_url}/{self.api_key}/eventslast.php"
             params = {"id": team_id}
-            logging.info(f"Fetching from: {url} with params: {params}")
             response = requests.get(url, params=params, timeout=10)
             response.raise_for_status()
             data = response.json()
-            logging.info(f"API Response: {data}")
-            print(f"API Response logged to sports_scores.log")
 
-            if not data.get("results"):  # Check 'results' instead of 'events'
+            if not data.get("results"):
                 raise ValueError("No recent matches found for this team in the free tier.")
 
-            return data["results"][0]  # Return the most recent match
+            matches = data["results"]
+            if date:
+                # Filter by date if provided (format: YYYY-MM-DD)
+                target_date = datetime.strptime(date, "%Y-%m-%d").date()
+                for match in matches:
+                    match_date = datetime.strptime(match["dateEvent"], "%Y-%m-%d").date()
+                    if match_date == target_date:
+                        return match
+                raise ValueError(f"No match found for {team} on {date} in the last 5 home matches.")
+
+            return matches[0]  # Default to latest match
 
         except requests.Timeout:
             raise ConnectionError("Request timed out after 10 seconds")
@@ -54,7 +56,6 @@ class TheSportsDBFree(SportsDataSource):
         response = requests.get(url, params={"t": team_name}, timeout=10)
         response.raise_for_status()
         data = response.json()
-        logging.info(f"Team Search Response: {data}")
 
         if not data["teams"]:
             raise ValueError(f"Team {team_name} not found")
@@ -88,9 +89,9 @@ class SportsScoreFetcher:
         self.data_source = data_source
         self.formatter = MatchFormatter()
 
-    def get_latest_match(self, team: str) -> str:
+    def get_latest_match(self, team: str, date: str = None) -> str:
         try:
-            match_data = self.data_source.fetch_latest_match(team)
+            match_data = self.data_source.fetch_latest_match(team, date)
             return self.formatter.format_match(match_data)
         except (ValueError, ConnectionError) as e:
             return f"Error: {str(e)}"
@@ -102,12 +103,13 @@ def main():
     fetcher = SportsScoreFetcher(data_source)
 
     print("Welcome to the Sports Score Fetcher (TheSportsDB Free Tier)!")
-    print("Note: Shows latest home match from the last 5 available in free tier.")
+    print("Note: Shows latest home match from the last 5 available in free tier, or a specific date.")
     team = input("Enter team name (e.g., Arsenal): ").strip()
+    date_input = input("Enter date (YYYY-MM-DD) or press Enter for latest match: ").strip()
+    date = date_input if date_input else None
 
-    result = fetcher.get_latest_match(team=team)
+    result = fetcher.get_latest_match(team, date)
     print(result)
-    print("Check 'sports_scores.log' for full API responses.")
 
 
 if __name__ == "__main__":
