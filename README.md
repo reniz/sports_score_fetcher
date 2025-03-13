@@ -27,11 +27,15 @@ Optionally, enter a date (e.g., "2023-10-10") for specific results.
 ## Example Output 
    
 **Welcome to the Sports Score Fetcher (TheSportsDB)!**
+
 **Enter team name (e.g., Arsenal): Arsenal**
+
 **Enter date (YYYY-MM-DD) or press Enter for latest:**
 
 **Match: Arsenal vs Chelsea**
+
 **Score: 2 - 1**
+
 **Date: 2023-10-10**
 
 
